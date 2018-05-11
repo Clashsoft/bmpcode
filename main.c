@@ -31,9 +31,10 @@ int main(int argc, char** args)
 
 width_height_t bmp_width_height(size_t size)
 {
-	int wh = (int) ceil(sqrt(size / 3.0));
+	size_t wh = (size_t) ceil(sqrt(size / 3.0));
+	wh += 4 - wh % 4; // ensure wh is a multiple of 4
 
-	width_height_t result = {wh, wh};
+	width_height_t result = {(int) wh, (int) wh};
 	return result;
 }
 
