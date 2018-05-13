@@ -29,38 +29,79 @@ int main(int argc, char** args)
 	fprintf(stderr, "usage: bmpdat [-e | -d] [input-file [output-file]]");
 }
 
-width_height_t bmp_width_height(size_t size)
+bmp_header_t bmp_header(size_t size)
 {
-	size_t wh = (size_t) ceil(sqrt(size / 3.0));
+	uint32_t wh = (uint32_t) ceil(sqrt((size + 8) / 3.0));
 	wh += 4 - wh % 4; // ensure wh is a multiple of 4
-
-	width_height_t result = {(int) wh, (int) wh};
-	return result;
+	return (bmp_header_t) {wh, wh, size};
 }
 
-void bmp_write_header(FILE* file, unsigned int w, unsigned int h)
+void write4le(uint8_t* a, uint32_t value)
 {
-	int size = 54 + 3 * w * h;
+	a[0] = (uint8_t) (value >> 0u);
+	a[1] = (uint8_t) (value >> 8u);
+	a[2] = (uint8_t) (value >> 16u);
+	a[3] = (uint8_t) (value >> 24u);
+}
 
-	unsigned char fileHeader[14] = {'B', 'M', 0, 0, 0, 0, 0, 0, 0, 0, 54, 0, 0, 0};
-	unsigned char infoHeader[40] = {40, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 24, 0};
+void write8le(uint8_t* a, uint64_t value)
+{
+	write4le(&a[0], (uint32_t) value);
+	write4le(&a[4], (uint32_t) (value >> 32u));
+}
 
-	fileHeader[2] = (unsigned char) (size);
-	fileHeader[3] = (unsigned char) (size >> 8);
-	fileHeader[4] = (unsigned char) (size >> 16);
-	fileHeader[5] = (unsigned char) (size >> 24);
+uint32_t read4le(const uint8_t* a)
+{
+	return ((uint32_t) a[0]) | ((uint32_t) a[1] << 8u) | ((uint32_t) a[2] << 16u) | ((uint32_t) a[3] << 24u);
+}
 
-	infoHeader[4]  = (unsigned char) (w);
-	infoHeader[5]  = (unsigned char) (w >> 8);
-	infoHeader[6]  = (unsigned char) (w >> 16);
-	infoHeader[7]  = (unsigned char) (w >> 24);
-	infoHeader[8]  = (unsigned char) (h);
-	infoHeader[9]  = (unsigned char) (h >> 8);
-	infoHeader[10] = (unsigned char) (h >> 16);
-	infoHeader[11] = (unsigned char) (h >> 24);
+uint64_t read8le(const uint8_t* a)
+{
+	return read4le(&a[0]) | read4le(&a[4]) << 32u;
+}
 
-	fwrite(fileHeader, 1, 14, file);
-	fwrite(infoHeader, 1, 40, file);
+void bmp_write_header(FILE* file, bmp_header_t header)
+{
+	uint32_t w = header.width;
+	uint32_t h = header.height;
+	size_t   d = header.size;
+	uint32_t s = 54 + 3 * w * h;
+
+	// file header
+
+	uint8_t fileHeader[BMP_HEADER_SIZE] = {
+			'B', 'M', // type
+			0, 0, 0, 0, // size
+			0, 0, 0, 0, // reserved
+			54, 0, 0, 0 // offset
+	};
+
+	write4le(&fileHeader[2], s);
+
+	fwrite(fileHeader, 1, BMP_HEADER_SIZE, file);
+
+	// info header
+
+	uint8_t infoHeader[BMP_INFO_SIZE] = {
+			40, 0, 0, 0, // info header size
+			0, 0, 0, 0, // width
+			0, 0, 0, 0, // height
+			1, 0, // planes
+			24, 0 // bits per pixel
+	};
+
+	write4le(&infoHeader[4], w);
+	write4le(&infoHeader[8], h);
+
+	fwrite(infoHeader, 1, BMP_INFO_SIZE, file);
+
+	// size
+
+	uint8_t dataHeader[8];
+
+	write8le(dataHeader, d);
+
+	fwrite(dataHeader, 1, 8, file);
 }
 
 void bmp_encode_p(char* input)
@@ -107,11 +148,11 @@ void bmp_encode_pf(char* input, FILE* outputFile)
 
 void bmp_encode(FILE* inputFile, FILE* outputFile)
 {
-	bmp_write_header(outputFile, 0, 0);
+	bmp_write_header(outputFile, (bmp_header_t) {});
 
-	char   buffer[4096];
-	size_t read;
-	size_t totalSize = 0;
+	uint8_t buffer[4096];
+	size_t  read;
+	size_t  totalSize = 0;
 
 	while ((read = fread(buffer, 1, sizeof(buffer), inputFile)) > 0)
 	{
@@ -120,7 +161,7 @@ void bmp_encode(FILE* inputFile, FILE* outputFile)
 	}
 	fclose(inputFile);
 
-	width_height_t wh = bmp_width_height(totalSize);
+	bmp_header_t wh = bmp_header(totalSize);
 
 	size_t pixelSize = 3 * (size_t) wh.width * (size_t) wh.height;
 	size_t diff      = pixelSize - totalSize;
@@ -131,7 +172,7 @@ void bmp_encode(FILE* inputFile, FILE* outputFile)
 	}
 
 	rewind(outputFile);
-	bmp_write_header(outputFile, wh.width, wh.height);
+	bmp_write_header(outputFile, wh);
 
 	fclose(outputFile);
 }
