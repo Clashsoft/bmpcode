@@ -150,9 +150,9 @@ void bmp_encode(FILE* inputFile, FILE* outputFile)
 {
 	bmp_write_header(outputFile, (bmp_header_t) {});
 
-	uint8_t buffer[4096];
-	size_t  read;
-	size_t  totalSize = 0;
+	uint8_t buffer[BUFFER_SIZE];
+	size_t read;
+	size_t totalSize = 0;
 
 	while ((read = fread(buffer, 1, sizeof(buffer), inputFile)) > 0)
 	{

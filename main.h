@@ -25,6 +25,8 @@ typedef struct width_height_t
 #define BMP_HEADER_SIZE 14
 #define BMP_INFO_SIZE 40
 
+#define BUFFER_SIZE 4096
+
 bmp_header_t bmp_header(size_t size);
 
 void bmp_write_header(FILE* file, bmp_header_t);
