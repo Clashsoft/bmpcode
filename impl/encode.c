@@ -1,6 +1,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <sys/stat.h>
 
 #include "encode.h"
 #include "utils.h"
@@ -65,33 +66,109 @@ void bmp_encode_pf(char* input, FILE* outputFile)
 	fclose(inputFile);
 }
 
-void bmp_encode(FILE* inputFile, FILE* outputFile)
+static off_t file_size(FILE* file)
 {
-	bmp_write_header(outputFile, (bmp_header_t) {});
+	struct stat st;
+	fstat(fileno(file), &st);
+	return S_ISREG(st.st_mode) ? st.st_size : -1;
+}
 
+static size_t copy_data(FILE* source, FILE* dest)
+{
 	uint8_t buffer[BUFFER_SIZE];
 	size_t read;
-	size_t totalSize = 0;
+	size_t total = 0;
 
-	while ((read = fread(buffer, 1, sizeof(buffer), inputFile)) > 0)
+	while ((read = fread(buffer, 1, sizeof(buffer), source)) > 0)
 	{
-		fwrite(buffer, 1, read, outputFile);
-		totalSize += read;
+		fwrite(buffer, 1, read, dest);
+		total += read;
 	}
-	fclose(inputFile);
 
-	bmp_header_t wh = bmp_header(totalSize);
+	return total;
+}
 
-	size_t pixelSize = 3 * (size_t) wh.width * (size_t) wh.height;
-	size_t diff = pixelSize - totalSize;
+static void write_padding(FILE* output, bmp_header_t header)
+{
+	size_t pixel_size = 3 * (size_t) header.width * (size_t) header.height;
+	size_t diff = pixel_size - header.size;
 
 	for (size_t i = 0; i < diff; i++)
 	{
-		fputc(0, outputFile);
+		fputc(0, output);
+	}
+}
+
+static void bmp_encode_simple(FILE* input_stream, size_t input_size, FILE* output_stream)
+{
+	bmp_header_t header = bmp_header(input_size);
+
+	// header
+	bmp_write_header(output_stream, header);
+
+	// data
+	copy_data(input_stream, output_stream);
+
+	// padding
+	write_padding(output_stream, header);
+}
+
+static void bmp_encode_rewind(FILE* input_stream, FILE* output_file)
+{
+	// write an error header at first, because we don't know the real dimensions yet
+	bmp_write_header(output_file, ERROR_HEADER);
+
+	// data copy yields length of input
+	size_t input_size = copy_data(input_stream, output_file);
+
+	// now we can compute the dimensions
+	bmp_header_t header = bmp_header(input_size);
+
+	// padding
+	write_padding(output_file, header);
+
+	// rewind before overriding the actual header
+	rewind(output_file);
+
+	// override the actual header over the previously written error header
+	bmp_write_header(output_file, header);
+}
+
+void bmp_encode(FILE* inputFile, FILE* outputFile)
+{
+	{
+		const off_t input_size = file_size(inputFile);
+
+		if (input_size >= 0)
+		{
+			// input has size, everything is known beforehand so output can also be a stream
+
+			bmp_encode_simple(inputFile, (size_t) input_size, outputFile);
+			return;
+		}
 	}
 
-	rewind(outputFile);
-	bmp_write_header(outputFile, wh);
+	// input does not have a size, e.g. stdin
 
-	fclose(outputFile);
+	if (file_size(outputFile) >= 0)
+	{
+		// output has a size, i.e. is a file
+
+		// strategy: write using rewind
+
+		bmp_encode_rewind(inputFile, outputFile);
+	}
+	else
+	{
+		// output does not have a size, e.g. stdout
+
+		// strategy: copy input to tmp file, then encode with size
+
+		FILE* tmp = tmpfile();
+		const size_t input_size = copy_data(inputFile, tmp);
+
+		rewind(tmp);
+
+		bmp_encode_simple(tmp, input_size, outputFile);
+	}
 }
