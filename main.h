@@ -39,5 +39,12 @@ void bmp_encode_pp(char* input, char* output);
 
 void bmp_encode_p(char* input);
 
+void bmp_decode(FILE* inputFile, FILE* outputFile);
+
+void bmp_decode_pf(char* input, FILE* outputFile);
+
+void bmp_decode_pp(char* input, char* output);
+
+void bmp_decode_p(char* input);
 
 #endif //FILE2BMP_MAIN_H
