@@ -55,3 +55,9 @@ test_stdinout: bmpencode bmpdecode
 
 clean:
 	-rm bmpcode bmpencode bmpdecode
+
+install: bmpcode bmpencode bmpdecode
+	cp bmpcode bmpencode bmpdecode /usr/local/bin/
+
+remove:
+	rm /usr/local/bin/bmpcode /usr/local/bin/bmpencode /usr/local/bin/bmpdecode
