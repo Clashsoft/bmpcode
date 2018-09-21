@@ -20,13 +20,22 @@ void bmp_encode_pp(char* input, char* output)
 {
 	if (strcmp(input, output) == 0)
 	{
+		// simple check to avoid corruption
 		fprintf(stderr, "error: input and output file must not be the same (%s)\n", input);
+		return;
+	}
+
+	if (strcmp(output, "-") == 0)
+	{
+		// output file "-" is interpreted as stdout
+		bmp_encode_pf(input, stdout);
 		return;
 	}
 
 	FILE* outputFile;
 	if ((outputFile = fopen(output, "wb")) == 0)
 	{
+		// failed to open
 		fprintf(stderr, "error: failed to open output file %s: ", output);
 		perror("");
 		return;
@@ -38,6 +47,13 @@ void bmp_encode_pp(char* input, char* output)
 
 void bmp_encode_pf(char* input, FILE* outputFile)
 {
+	if (strcmp(input, "-") == 0)
+	{
+		// input file "-" is interpreted as stdin
+		bmp_encode(stdin, outputFile);
+		return;
+	}
+
 	FILE* inputFile;
 	if ((inputFile = fopen(input, "rb")) == 0)
 	{
