@@ -18,17 +18,17 @@ void bmp_encode_p(char* input)
 
 void bmp_encode_pp(char* input, char* output)
 {
-	if (strcmp(input, output) == 0)
-	{
-		// simple check to avoid corruption
-		fprintf(stderr, "error: input and output file must not be the same (%s)\n", input);
-		return;
-	}
-
 	if (strcmp(output, "-") == 0)
 	{
 		// output file "-" is interpreted as stdout
 		bmp_encode_pf(input, stdout);
+		return;
+	}
+
+	if (strcmp(input, output) == 0)
+	{
+		// simple check to avoid corruption
+		fprintf(stderr, "error: input and output file must not be the same (%s)\n", input);
 		return;
 	}
 
