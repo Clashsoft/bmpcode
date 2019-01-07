@@ -3,13 +3,13 @@ default: all
 all: bmpcode bmpencode bmpdecode
 
 bmpcode: bmpcode.c impl/utils.c impl/encode.c impl/decode.c
-	gcc bmpcode.c impl/utils.c impl/encode.c impl/decode.c -o bmpcode
+	gcc -lm bmpcode.c impl/utils.c impl/encode.c impl/decode.c -o bmpcode
 
 bmpencode: bmpencode.c impl/utils.c impl/encode.c
-	gcc bmpencode.c impl/utils.c impl/encode.c -o bmpencode
+	gcc -lm bmpencode.c impl/utils.c impl/encode.c -o bmpencode
 
 bmpdecode: bmpdecode.c impl/utils.c impl/decode.c
-	gcc bmpdecode.c impl/utils.c impl/decode.c -o bmpdecode
+	gcc -lm bmpdecode.c impl/utils.c impl/decode.c -o bmpdecode
 
 test: test_txt test_bin test_stdin test_stdout test_stdinout
 
@@ -54,7 +54,7 @@ test_stdinout: bmpencode bmpdecode
 	-rm temp/text.txt.bmp temp/text.decoded.txt
 
 clean:
-	-rm bmpcode bmpencode bmpdecode
+	-rm bmpcode bmpencode bmpdecode *.o impl/*.o
 
 install: bmpcode bmpencode bmpdecode
 	cp bmpcode bmpencode bmpdecode /usr/local/bin/
